@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 쿠키 본체 -->
+    <path
+        android:fillColor="#C98A4B"
+        android:pathData="M54,30 A24,24 0 1,1 53.99,30 Z" />
+    <!-- 한 입 베어문 자국 -->
+    <path
+        android:fillColor="#F4A623"
+        android:pathData="M78,40 A8,8 0 1,1 77.99,40 Z" />
+    <!-- 초코칩 -->
+    <path android:fillColor="#5A3310" android:pathData="M44,44 A4,4 0 1,1 43.99,44 Z" />
+    <path android:fillColor="#5A3310" android:pathData="M60,52 A4,4 0 1,1 59.99,52 Z" />
+    <path android:fillColor="#5A3310" android:pathData="M46,62 A3.5,3.5 0 1,1 45.99,62 Z" />
+    <path android:fillColor="#5A3310" android:pathData="M58,68 A3,3 0 1,1 57.99,68 Z" />
+    <path android:fillColor="#5A3310" android:pathData="M68,62 A3,3 0 1,1 67.99,62 Z" />
+</vector>

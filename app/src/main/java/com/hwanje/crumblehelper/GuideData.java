@@ -1,0 +1,192 @@
+package com.hwanje.crumblehelper;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
+/** 공략 데이터 모델. assets/guides.json 과 같은 구조로 읽고 쓴다. */
+public final class GuideData {
+
+    public static final String DEFAULT_CHANNEL_ID = "UC8qM2iK0haNWH5Gkkyj4XVQ";
+
+    public int version = 1;
+    public String updated = "";
+    public String channelId = DEFAULT_CHANNEL_ID;
+    public String notice = "";
+    public final List<Category> categories = new ArrayList<>();
+
+    public static final class Category {
+        public String id = "";
+        public String title = "";
+        public String emoji = "";
+        public final List<Entry> entries = new ArrayList<>();
+
+        public String label() {
+            return emoji.isEmpty() ? title : emoji + " " + title;
+        }
+    }
+
+    public static final class Entry {
+        public String id = "";
+        public String title = "";
+        public final List<String> tags = new ArrayList<>();
+        public String summary = "";
+        public final List<String> deck = new ArrayList<>();
+        public final List<String> tips = new ArrayList<>();
+        public String search = "";
+        public final List<Link> links = new ArrayList<>();
+        public boolean verified = false;
+
+        /** 검색어가 제목·태그·요약·덱·팁 중 하나라도 포함되는지. */
+        public boolean matches(String query) {
+            if (query == null || query.trim().isEmpty()) return true;
+            String q = query.trim().toLowerCase(Locale.ROOT);
+            if (contains(title, q) || contains(summary, q) || contains(search, q)) return true;
+            for (String s : tags) if (contains(s, q)) return true;
+            for (String s : deck) if (contains(s, q)) return true;
+            for (String s : tips) if (contains(s, q)) return true;
+            return false;
+        }
+
+        private static boolean contains(String s, String q) {
+            return s != null && s.toLowerCase(Locale.ROOT).contains(q);
+        }
+    }
+
+    public static final class Link {
+        public String label = "";
+        public String url = "";
+
+        public Link() {}
+
+        public Link(String label, String url) {
+            this.label = label;
+            this.url = url;
+        }
+    }
+
+    public Category findCategory(String id) {
+        for (Category c : categories) if (c.id.equals(id)) return c;
+        return null;
+    }
+
+    /** 항목을 찾아 [카테고리, 항목]을 돌려준다. 없으면 null. */
+    public Object[] findEntry(String entryId) {
+        for (Category c : categories) {
+            for (Entry e : c.entries) {
+                if (e.id.equals(entryId)) return new Object[] {c, e};
+            }
+        }
+        return null;
+    }
+
+    // ---- JSON ----
+
+    public static GuideData fromJson(String json) throws JSONException {
+        JSONObject root = new JSONObject(json);
+        GuideData d = new GuideData();
+        d.version = root.optInt("version", 1);
+        d.updated = root.optString("updated", "");
+        d.channelId = root.optString("channelId", DEFAULT_CHANNEL_ID);
+        if (d.channelId.isEmpty()) d.channelId = DEFAULT_CHANNEL_ID;
+        d.notice = root.optString("notice", "");
+        JSONArray cats = root.getJSONArray("categories");
+        for (int i = 0; i < cats.length(); i++) {
+            JSONObject co = cats.getJSONObject(i);
+            Category c = new Category();
+            c.id = co.optString("id", "cat" + i);
+            c.title = co.optString("title", c.id);
+            c.emoji = co.optString("emoji", "");
+            JSONArray es = co.optJSONArray("entries");
+            if (es != null) {
+                for (int j = 0; j < es.length(); j++) {
+                    c.entries.add(entryFromJson(es.getJSONObject(j), c.id + "-" + j));
+                }
+            }
+            d.categories.add(c);
+        }
+        return d;
+    }
+
+    private static Entry entryFromJson(JSONObject o, String fallbackId) {
+        Entry e = new Entry();
+        e.id = o.optString("id", fallbackId);
+        if (e.id.isEmpty()) e.id = fallbackId;
+        e.title = o.optString("title", "");
+        readStrings(o.optJSONArray("tags"), e.tags);
+        e.summary = o.optString("summary", "");
+        readStrings(o.optJSONArray("deck"), e.deck);
+        readStrings(o.optJSONArray("tips"), e.tips);
+        e.search = o.optString("search", "");
+        JSONArray links = o.optJSONArray("links");
+        if (links != null) {
+            for (int i = 0; i < links.length(); i++) {
+                JSONObject lo = links.optJSONObject(i);
+                if (lo == null) continue;
+                String url = lo.optString("url", "");
+                if (url.isEmpty()) continue;
+                e.links.add(new Link(lo.optString("label", url), url));
+            }
+        }
+        e.verified = o.optBoolean("verified", false);
+        return e;
+    }
+
+    private static void readStrings(JSONArray arr, List<String> out) {
+        if (arr == null) return;
+        for (int i = 0; i < arr.length(); i++) {
+            String s = arr.optString(i, "").trim();
+            if (!s.isEmpty()) out.add(s);
+        }
+    }
+
+    public String toJson() {
+        try {
+            JSONObject root = new JSONObject();
+            root.put("version", version);
+            root.put("updated", updated);
+            root.put("channelId", channelId);
+            root.put("notice", notice);
+            JSONArray cats = new JSONArray();
+            for (Category c : categories) {
+                JSONObject co = new JSONObject();
+                co.put("id", c.id);
+                co.put("title", c.title);
+                co.put("emoji", c.emoji);
+                JSONArray es = new JSONArray();
+                for (Entry e : c.entries) es.put(entryToJson(e));
+                co.put("entries", es);
+                cats.put(co);
+            }
+            root.put("categories", cats);
+            return root.toString(2);
+        } catch (JSONException ex) {
+            throw new IllegalStateException(ex);
+        }
+    }
+
+    private static JSONObject entryToJson(Entry e) throws JSONException {
+        JSONObject o = new JSONObject();
+        o.put("id", e.id);
+        o.put("title", e.title);
+        o.put("tags", new JSONArray(e.tags));
+        o.put("summary", e.summary);
+        o.put("deck", new JSONArray(e.deck));
+        o.put("tips", new JSONArray(e.tips));
+        o.put("search", e.search);
+        JSONArray links = new JSONArray();
+        for (Link l : e.links) {
+            JSONObject lo = new JSONObject();
+            lo.put("label", l.label);
+            lo.put("url", l.url);
+            links.put(lo);
+        }
+        o.put("links", links);
+        o.put("verified", e.verified);
+        return o;
+    }
+}

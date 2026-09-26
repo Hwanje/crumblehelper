@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">크럼블 헬퍼</string>
+    <string name="title_edit_list">공략 편집</string>
+    <string name="title_edit_entry">공략 항목</string>
+</resources>
