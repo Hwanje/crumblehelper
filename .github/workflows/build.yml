@@ -36,6 +36,7 @@ jobs:
       - name: Set version
         env:
           RELEASE_INPUT: ${{ github.event.inputs.release }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           echo "VERSION_CODE=${{ github.run_number }}" >> "$GITHUB_ENV"
           TAG=""
@@ -43,11 +44,16 @@ jobs:
             TAG="$GITHUB_REF_NAME"
           elif [[ -n "$RELEASE_INPUT" ]]; then
             TAG="$RELEASE_INPUT"
-            [[ "$TAG" == v* ]] || TAG="v$TAG"
+          elif [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF_NAME" == "${{ github.event.repository.default_branch }}" ]]; then
+            # 기본 브랜치에 version.txt 의 버전이 아직 릴리스되지 않았으면 자동 배포
+            V="v$(tr -d '[:space:]' < version.txt)"
+            if ! gh release view "$V" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then TAG="$V"; fi
           fi
+          [[ -z "$TAG" || "$TAG" == v* ]] || TAG="v$TAG"
           if [[ -n "$TAG" ]]; then
             echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
             echo "VERSION_NAME=${TAG#v}" >> "$GITHUB_ENV"
+            echo "Releasing $TAG"
           fi
 
       - name: Use signing key from secrets

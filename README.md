@@ -30,12 +30,11 @@
 
 ## 새 버전 배포하기
 
-```bash
-git tag v1.1.0 && git push origin v1.1.0
-```
-또는 GitHub의 **Actions → Build APK → Run workflow**에서 `release` 칸에 `v1.1.0`을 넣고 실행해도 됩니다.
-태그를 푸시하거나 이렇게 실행하면 Actions가 APK를 빌드해 Releases에 올리고, 설치된 앱이 새 버전을 알려 줍니다.
-공략만 바꿀 때는 태그 없이 `app/src/main/assets/guides.json`만 고쳐서 푸시하면 됩니다.
+`version.txt`의 숫자를 올려서(예: `1.0.0` → `1.1.0`) 기본 브랜치에 푸시하면 끝입니다.
+Actions가 APK를 빌드해 `v1.1.0` 릴리스로 올리고, 설치된 앱이 새 버전을 알려 줍니다.
+(`v1.1.0` 태그를 직접 푸시하거나, Actions → Build APK → Run workflow에서 `release` 칸에 버전을 넣어도 됩니다.)
+
+공략만 바꿀 때는 버전을 올릴 필요 없이 `app/src/main/assets/guides.json`만 고쳐서 푸시하면 앱이 자동으로 받아갑니다.
 
 ### 서명 키 (앱 자동 업데이트에 필요)
 업데이트가 기존 앱 위에 설치되려면 모든 버전이 같은 키로 서명돼야 합니다.

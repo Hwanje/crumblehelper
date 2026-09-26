@@ -15,7 +15,7 @@ android {
         minSdk 26
         targetSdk 35
         versionCode envVersionCode ? envVersionCode.toInteger() : 1
-        versionName envVersionName ?: '1.0.0'
+        versionName envVersionName ?: rootProject.file('version.txt').text.trim()
     }
 
     signingConfigs {
