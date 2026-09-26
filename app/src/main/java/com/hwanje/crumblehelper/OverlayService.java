@@ -562,7 +562,8 @@ public class OverlayService extends Service implements GuideRepository.Listener 
         clampToScreen(panelParams, panelParams.width, panelParams.height);
         wm.addView(panel, panelParams);
         panelShown = true;
-        bubble.setVisibility(View.GONE);
+        // GONE 으로 숨기면 창 영역이 남아 게임 터치를 가로채므로 창 자체를 뗀다
+        removeView(bubble);
     }
 
     private void hidePanel() {
@@ -571,7 +572,7 @@ public class OverlayService extends Service implements GuideRepository.Listener 
         setPanelFocusable(false);
         removeView(panel);
         panelShown = false;
-        if (bubble != null) bubble.setVisibility(View.VISIBLE);
+        if (bubble != null && !bubble.isAttachedToWindow()) wm.addView(bubble, bubbleParams);
     }
 
     private void setPanelFocusable(boolean focusable) {
