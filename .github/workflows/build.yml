@@ -6,6 +6,11 @@ on:
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
+    inputs:
+      release:
+        description: "배포할 버전 태그 (예: v1.1.0). 비우면 빌드만 함"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -29,10 +34,20 @@ jobs:
         run: python3 -c "import json; d=json.load(open('app/src/main/assets/guides.json', encoding='utf-8')); assert d['categories'], 'no categories'"
 
       - name: Set version
+        env:
+          RELEASE_INPUT: ${{ github.event.inputs.release }}
         run: |
           echo "VERSION_CODE=${{ github.run_number }}" >> "$GITHUB_ENV"
+          TAG=""
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            echo "VERSION_NAME=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+            TAG="$GITHUB_REF_NAME"
+          elif [[ -n "$RELEASE_INPUT" ]]; then
+            TAG="$RELEASE_INPUT"
+            [[ "$TAG" == v* ]] || TAG="v$TAG"
+          fi
+          if [[ -n "$TAG" ]]; then
+            echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
+            echo "VERSION_NAME=${TAG#v}" >> "$GITHUB_ENV"
           fi
 
       - name: Use signing key from secrets
@@ -65,9 +80,13 @@ jobs:
           name: CrumbleHelper-apk
           path: CrumbleHelper.apk
 
-      - name: Publish release (tags only)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Publish release
+        if: env.RELEASE_TAG != ''
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          target_commitish: ${{ github.sha }}
+          name: 크럼블 헬퍼 ${{ env.RELEASE_TAG }}
           files: CrumbleHelper.apk
           generate_release_notes: true
+          make_latest: true
