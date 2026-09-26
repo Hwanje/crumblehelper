@@ -127,7 +127,7 @@ public class GuideListActivity extends Activity implements GuideRepository.Liste
                     if (title.isEmpty()) return;
                     GuideData data = GuideRepository.get(this);
                     GuideData.Category c = new GuideData.Category();
-                    c.id = "cat-" + System.currentTimeMillis();
+                    c.id = GuideData.USER_CATEGORY_PREFIX + System.currentTimeMillis();
                     c.title = title;
                     c.emoji = emoji.getText().toString().trim();
                     data.categories.add(c);

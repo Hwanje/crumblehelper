@@ -17,11 +17,15 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import java.text.DateFormat;
+import java.util.Date;
 
 public class MainActivity extends Activity implements GuideRepository.Listener {
 
@@ -31,6 +35,8 @@ public class MainActivity extends Activity implements GuideRepository.Listener {
     private Button stopButton;
     private TextView dataStatus;
     private EditText urlInput;
+    private TextView updateStatus;
+    private boolean updateDialogShown;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -74,8 +80,8 @@ public class MainActivity extends Activity implements GuideRepository.Listener {
                 GuideRepository.channelSearchUrl(GuideRepository.get(this), ""))));
 
         root.addView(header("3. 공략 업데이트 / 백업"));
-        root.addView(hint("아래 주소의 guides.json 을 받아서 공략을 통째로 바꿔요. "
-                + "GitHub 저장소의 파일을 고쳐 두면 앱을 다시 설치하지 않아도 공략을 갱신할 수 있어요."));
+        root.addView(hint("아래 주소의 guides.json 을 받아서 공략을 갱신해요. 앱에서 직접 만들거나 고친 항목은 그대로 남아요. "
+                + "GitHub 저장소의 파일을 고쳐 두면 앱이 자동으로 받아가요."));
         urlInput = new EditText(this);
         urlInput.setSingleLine(true);
         urlInput.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
@@ -85,6 +91,22 @@ public class MainActivity extends Activity implements GuideRepository.Listener {
         root.addView(button("📤 내 공략 JSON 내보내기 (공유)", v -> exportJson()));
         root.addView(button("📋 클립보드의 JSON 가져오기", v -> importFromClipboard()));
         root.addView(button("↺ 내장 기본 공략으로 초기화", v -> confirmReset()));
+
+        // 4. 자동 업데이트
+        root.addView(header("4. 자동 업데이트"));
+        updateStatus = body("");
+        root.addView(updateStatus);
+        CheckBox autoGuides = new CheckBox(this);
+        autoGuides.setText("공략 자동 업데이트 (6시간마다, 내가 고친 항목은 유지)");
+        autoGuides.setChecked(GuideRepository.isAutoUpdateEnabled(this));
+        autoGuides.setOnCheckedChangeListener((b, on) -> GuideRepository.setAutoUpdateEnabled(this, on));
+        root.addView(autoGuides);
+        CheckBox autoApp = new CheckBox(this);
+        autoApp.setText("앱 새 버전 자동 확인 (12시간마다)");
+        autoApp.setChecked(AppUpdater.isAutoEnabled(this));
+        autoApp.setOnCheckedChangeListener((b, on) -> AppUpdater.setAutoEnabled(this, on));
+        root.addView(autoApp);
+        root.addView(button("🔄 지금 업데이트 확인", v -> checkNow()));
 
         GuideRepository.addListener(this);
         requestNotificationPermissionIfNeeded();
@@ -100,6 +122,38 @@ public class MainActivity extends Activity implements GuideRepository.Listener {
     protected void onResume() {
         super.onResume();
         refresh();
+        GuideRepository.autoUpdateIfDue(this);
+        AppUpdater.checkIfDue(this);
+        AppUpdater.Release pending = AppUpdater.pendingRelease(this);
+        if (pending != null && !updateDialogShown) showUpdateDialog(pending);
+    }
+
+    private void checkNow() {
+        Toast.makeText(this, "확인 중…", Toast.LENGTH_SHORT).show();
+        GuideRepository.update(this, GuideRepository.getUpdateUrl(this), false, (ok, msg) -> {
+            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
+            refresh();
+        });
+        AppUpdater.check(this, (release, msg) -> {
+            refresh();
+            if (release != null) showUpdateDialog(release);
+            else Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
+        });
+    }
+
+    private void showUpdateDialog(AppUpdater.Release r) {
+        if (isFinishing()) return;
+        updateDialogShown = true;
+        String notes = r.notes == null ? "" : r.notes.trim();
+        if (notes.length() > 600) notes = notes.substring(0, 600) + "…";
+        new AlertDialog.Builder(this)
+                .setTitle("새 버전 " + r.tag)
+                .setMessage("지금 버전: v" + AppUpdater.currentVersion(this)
+                        + (notes.isEmpty() ? "" : "\n\n" + notes))
+                .setPositiveButton("업데이트", (d, w) -> AppUpdater.downloadAndInstall(this, r))
+                .setNeutralButton("이 버전 건너뛰기", (d, w) -> AppUpdater.skip(this, r))
+                .setNegativeButton("나중에", null)
+                .show();
     }
 
     @Override
@@ -127,6 +181,11 @@ public class MainActivity extends Activity implements GuideRepository.Listener {
                 + (d.updated.isEmpty() ? "" : "  ·  " + d.updated)
                 + "\n카테고리 " + d.categories.size() + "개 · 항목 " + entries + "개"
                 + (unverified > 0 ? " · 확인 필요 " + unverified + "개" : ""));
+
+        long last = GuideRepository.lastCheckTime(this);
+        updateStatus.setText("앱 버전: v" + AppUpdater.currentVersion(this)
+                + "\n공략 마지막 확인: " + (last == 0 ? "아직 없음"
+                : DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(new Date(last))));
     }
 
     private void openOverlaySettings() {
@@ -160,7 +219,7 @@ public class MainActivity extends Activity implements GuideRepository.Listener {
         }
         GuideRepository.setUpdateUrl(this, url);
         Toast.makeText(this, "받아오는 중…", Toast.LENGTH_SHORT).show();
-        GuideRepository.fetchFromUrl(this, url, (ok, msg) ->
+        GuideRepository.update(this, url, true, (ok, msg) ->
                 Toast.makeText(this, msg, Toast.LENGTH_LONG).show());
     }
 

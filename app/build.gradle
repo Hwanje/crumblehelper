@@ -2,6 +2,10 @@ plugins {
     id 'com.android.application'
 }
 
+// CI 에서 태그(v1.2.3)로 빌드하면 VERSION_NAME/VERSION_CODE 가 넘어온다
+def envVersionName = System.getenv('VERSION_NAME')
+def envVersionCode = System.getenv('VERSION_CODE')
+
 android {
     namespace 'com.hwanje.crumblehelper'
     compileSdk 35
@@ -10,15 +14,27 @@ android {
         applicationId 'com.hwanje.crumblehelper'
         minSdk 26
         targetSdk 35
-        versionCode 1
-        versionName '1.0.0'
+        versionCode envVersionCode ? envVersionCode.toInteger() : 1
+        versionName envVersionName ?: '1.0.0'
+    }
+
+    signingConfigs {
+        // 앱 자동 업데이트가 설치되려면 모든 버전이 같은 키로 서명돼야 한다.
+        // CI 가 저장소 시크릿의 키를 KEYSTORE_FILE 등으로 넘겨준다. 없으면 디버그 키로 서명.
+        if (System.getenv('KEYSTORE_FILE')) {
+            release {
+                storeFile file(System.getenv('KEYSTORE_FILE'))
+                storePassword System.getenv('KEYSTORE_PASSWORD')
+                keyAlias System.getenv('KEY_ALIAS')
+                keyPassword System.getenv('KEY_PASSWORD')
+            }
+        }
     }
 
     buildTypes {
         release {
             minifyEnabled false
-            // 별도 키가 없으면 디버그 키로 서명해서 바로 설치할 수 있게 함
-            signingConfig signingConfigs.debug
+            signingConfig System.getenv('KEYSTORE_FILE') ? signingConfigs.release : signingConfigs.debug
         }
     }
 

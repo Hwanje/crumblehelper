@@ -14,6 +14,9 @@
 - **앱 안에서 공략 편집/추가/삭제**, 카테고리 추가
 - **URL로 공략 업데이트**: 이 저장소의 `app/src/main/assets/guides.json`을 고쳐 두면 앱에서 "공략 받아오기"로 재설치 없이 갱신
 - JSON 내보내기(공유) / 클립보드에서 가져오기로 백업·공유
+- **자동 업데이트**
+  - 공략: 6시간마다 저장소의 `guides.json`을 확인해서 바뀌었으면 반영 (앱에서 직접 만들거나 고친 항목, 지운 항목은 그대로 유지)
+  - 앱: 12시간마다 GitHub Releases를 확인해서 새 버전이 있으면 알림 → 누르면 APK를 받아 설치 화면까지 열어 줌
 
 ## 설치
 
@@ -24,6 +27,25 @@
 4. 쿠키런: 크럼블 실행 → 🍪 버튼 터치
 
 직접 빌드: Android Studio로 열거나 `./gradlew assembleRelease` (JDK 17, Android SDK 35 필요).
+
+## 새 버전 배포하기
+
+```bash
+git tag v1.1.0 && git push origin v1.1.0
+```
+태그를 푸시하면 Actions가 APK를 빌드해 Releases에 올리고, 설치된 앱이 새 버전을 알려 줍니다.
+공략만 바꿀 때는 태그 없이 `app/src/main/assets/guides.json`만 고쳐서 푸시하면 됩니다.
+
+### 서명 키 (앱 자동 업데이트에 필요)
+업데이트가 기존 앱 위에 설치되려면 모든 버전이 같은 키로 서명돼야 합니다.
+키는 저장소에 넣지 말고 **Settings → Secrets and variables → Actions**에 등록하세요.
+
+1. 키 만들기 (PC에서 한 번): `keytool -genkeypair -keystore release.keystore -storetype PKCS12 -alias crumblehelper -keyalg RSA -keysize 2048 -validity 10000`
+2. `base64 -w0 release.keystore` 결과를 `KEYSTORE_BASE64`로 등록
+3. `KEYSTORE_PASSWORD`, `KEY_PASSWORD`(PKCS12면 같은 값), `KEY_ALIAS`(`crumblehelper`) 등록
+
+시크릿이 없으면 CI가 임시 디버그 키로 서명하므로, 그 APK는 다음 버전으로 업데이트 설치가 되지 않습니다.
+키를 처음 등록한 뒤 나온 버전은 한 번만 기존 앱을 지우고 설치하면 그다음부터는 자동 업데이트됩니다.
 
 ## 공략 데이터 (`guides.json`)
 

@@ -12,12 +12,15 @@ import java.util.Locale;
 public final class GuideData {
 
     public static final String DEFAULT_CHANNEL_ID = "UC8qM2iK0haNWH5Gkkyj4XVQ";
+    public static final String USER_CATEGORY_PREFIX = "cat-";
 
     public int version = 1;
     public String updated = "";
     public String channelId = DEFAULT_CHANNEL_ID;
     public String notice = "";
     public final List<Category> categories = new ArrayList<>();
+    /** 사용자가 삭제한 기본 항목 id. 자동 업데이트 때 되살아나지 않게 기억한다. */
+    public final List<String> deletedIds = new ArrayList<>();
 
     public static final class Category {
         public String id = "";
@@ -40,6 +43,8 @@ public final class GuideData {
         public String search = "";
         public final List<Link> links = new ArrayList<>();
         public boolean verified = false;
+        /** 사용자가 직접 만들거나 고친 항목. 자동 업데이트가 덮어쓰지 않는다. */
+        public boolean userEdited = false;
 
         /** 검색어가 제목·태그·요약·덱·팁 중 하나라도 포함되는지. */
         public boolean matches(String query) {
@@ -84,6 +89,61 @@ public final class GuideData {
         return null;
     }
 
+    /**
+     * 새로 받은 공략(remote)에 이 데이터의 사용자 편집 내용을 얹은 결과를 만든다.
+     * 사용자가 만들거나 고친 항목은 유지하고, 사용자가 지운 기본 항목은 계속 빠진 채로 둔다.
+     */
+    public GuideData mergeUserEditsInto(GuideData remote) {
+        GuideData out = remote;
+        out.deletedIds.clear();
+        out.deletedIds.addAll(deletedIds);
+        for (String id : deletedIds) removeEntry(out, id);
+
+        // 사용자가 만든 카테고리는 비어 있어도 유지
+        for (Category localCat : categories) {
+            if (localCat.id.startsWith(USER_CATEGORY_PREFIX) && out.findCategory(localCat.id) == null) {
+                Category c = new Category();
+                c.id = localCat.id;
+                c.title = localCat.title;
+                c.emoji = localCat.emoji;
+                out.categories.add(c);
+            }
+        }
+
+        for (Category localCat : categories) {
+            for (Entry e : localCat.entries) {
+                if (!e.userEdited) continue;
+                Category target = out.findCategory(localCat.id);
+                if (target == null) {
+                    target = new Category();
+                    target.id = localCat.id;
+                    target.title = localCat.title;
+                    target.emoji = localCat.emoji;
+                    out.categories.add(target);
+                }
+                int pos = -1;
+                for (int i = 0; i < target.entries.size(); i++) {
+                    if (target.entries.get(i).id.equals(e.id)) pos = i;
+                }
+                if (pos >= 0) {
+                    target.entries.set(pos, e);
+                } else {
+                    removeEntry(out, e.id); // 다른 카테고리로 옮긴 경우
+                    target.entries.add(e);
+                }
+            }
+        }
+        return out;
+    }
+
+    private static void removeEntry(GuideData d, String id) {
+        for (Category c : d.categories) {
+            for (int i = c.entries.size() - 1; i >= 0; i--) {
+                if (c.entries.get(i).id.equals(id)) c.entries.remove(i);
+            }
+        }
+    }
+
     // ---- JSON ----
 
     public static GuideData fromJson(String json) throws JSONException {
@@ -109,6 +169,7 @@ public final class GuideData {
             }
             d.categories.add(c);
         }
+        readStrings(root.optJSONArray("deleted"), d.deletedIds);
         return d;
     }
 
@@ -133,6 +194,7 @@ public final class GuideData {
             }
         }
         e.verified = o.optBoolean("verified", false);
+        e.userEdited = o.optBoolean("userEdited", false);
         return e;
     }
 
@@ -163,6 +225,7 @@ public final class GuideData {
                 cats.put(co);
             }
             root.put("categories", cats);
+            if (!deletedIds.isEmpty()) root.put("deleted", new JSONArray(deletedIds));
             return root.toString(2);
         } catch (JSONException ex) {
             throw new IllegalStateException(ex);
@@ -187,6 +250,7 @@ public final class GuideData {
         }
         o.put("links", links);
         o.put("verified", e.verified);
+        if (e.userEdited) o.put("userEdited", true);
         return o;
     }
 }

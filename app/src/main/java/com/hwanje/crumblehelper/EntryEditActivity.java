@@ -117,6 +117,8 @@ public class EntryEditActivity extends Activity {
                     .setMessage("'" + entry.title + "' 항목을 삭제할까요?")
                     .setPositiveButton("삭제", (d, w) -> {
                         originalCategory.entries.remove(entry);
+                        // 기본 공략 항목을 지운 경우에만 기억 (직접 만든 항목은 원격에 없음)
+                        if (!entry.id.startsWith("user-")) data.deletedIds.add(entry.id);
                         persistAndFinish();
                     })
                     .setNegativeButton("취소", null)
@@ -153,6 +155,7 @@ public class EntryEditActivity extends Activity {
             e.links.add(new GuideData.Link(label.isEmpty() ? "영상" : label, url));
         }
         e.verified = verified.isChecked();
+        e.userEdited = true;
 
         GuideData.Category target = data.categories.get(categorySpinner.getSelectedItemPosition());
         if (entry == null) {

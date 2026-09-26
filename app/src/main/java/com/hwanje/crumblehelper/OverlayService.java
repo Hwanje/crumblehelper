@@ -107,6 +107,9 @@ public class OverlayService extends Service implements GuideRepository.Listener 
         if (bubble == null) createBubble();
         if (panel == null) createPanel();
         if (ACTION_SHOW_PANEL.equals(action)) showPanel();
+        // 게임하면서 켜 두는 동안에도 새 공략·새 버전을 알아서 확인
+        GuideRepository.autoUpdateIfDue(this);
+        AppUpdater.checkIfDue(this);
         return START_STICKY;
     }
 
